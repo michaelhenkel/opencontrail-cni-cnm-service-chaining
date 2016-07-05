@@ -119,7 +119,7 @@ EOF
 ```
 
 Create environment for CNI container:        
-``
+```
 cat << EOF > cni.env
 API_SERVER_PORT=8082
 API_SERVER_IP=$CONTRAIL_IP
