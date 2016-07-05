@@ -16,12 +16,16 @@ https://github.com/michaelhenkel/opencontrail-cni-plugin
 https://github.com/michaelhenkel/opencontrail-docker-libnetwork    
 
 In order to show the full potential of the abstraction this example uses one CNI    
-and one CNM based container in a Service Chain between two other containers.    
+and one CNM based container as Service Instances (SI) in a Service Chain between    
+two other containers.    
+Two additional containers will be connected to VNs net1 and net2. A network policy    
+will force traffic between the containers through the CNM and CNI SI.    
 Therefore two virtual networks (VNs) (net1 and net2) will be created. The VNs    
 must be created using the CNM command line as CNM doesn't support discovery    
-of VNs not being created by CNM.
+of VNs not being created by CNM.    
 
 
+# Logical Network Setup
 ```
                       +-------------+
                       |    cnmSI    |
@@ -39,8 +43,10 @@ of VNs not being created by CNM.
                       |  Namespace  |
                       |    cniSI    |
                       +-------------+
+```
 
-
+# Communication Flow
+```
               +-------------+
               |    cnmSI    |
  +---------+  |   Docker    |
@@ -55,11 +61,14 @@ of VNs not being created by CNM.
               |    cniSI    |
               +-------------+
 ```
+#Setup Instructions:
 
+Install Kernel headers:    
 ```
 apt-get install -y linux-headers-`uname -r` linux-image-`uname -r` linux-headers-`uname -r`-generic linux-image-`uname -r`-generic
 ```
 
+Setup Environment Variables (adjust as needed):    
 ```
 FULL_KERNEL=`uname -r`
 KERNEL=`echo $FULL_KERNEL |awk -F"-" '{print $1 "-" $2}'`
@@ -74,6 +83,7 @@ PREFIX_LEN=`echo $IP_PREF|awk -F"/" '{print $2}'`
 GATEWAY=`ip r sh |grep default |awk '{print $3'}`
 ```
 
+Create environment file for CNM container:    
 ```
 mkdir contrail
 cd contrail
@@ -108,7 +118,8 @@ DEBUG=true
 EOF
 ```
 
-```
+Create environment for CNI container:        
+``
 cat << EOF > cni.env
 API_SERVER_PORT=8082
 API_SERVER_IP=$CONTRAIL_IP
@@ -122,6 +133,7 @@ CNI_IFNAME=eth0
 EOF
 ```
 
+Create docker-compose file:    
 ```
 cat << EOF > docker-compose.yml
 version: '2'
@@ -168,6 +180,7 @@ services:
 EOF
 ```
 
+Create network definition for CNI based namespaces:    
 ```
 mkdir -p /etc/cni/net.d
 cat << EOF > /etc/cni/net.d/10-opencontrail-multi.conf
@@ -200,6 +213,7 @@ cat << EOF > /etc/cni/net.d/10-opencontrail-multi.conf
 EOF
 ```
 
+Create a CNI source file:    
 ```
 cat << EOF > ~/.cnirc
 export API_SERVER_PORT=8082
@@ -217,31 +231,44 @@ export CNI_NETNS=/var/run/netns/cniSI
 EOF
 ```
 
+Bring up vrouter agent:    
 ```
 docker-compose up -d vrouter-agent
 docker-compose logs -f
 ip addr sh
 ```
 
+Bring up CNM driver container:    
 ```
 docker-compose up -d cnm
 docker-compose logs -f cnm
 ```
 
+Create VNs using CNM CLI:    
 ```
 docker network create -d opencontrail -o rt=64512:1 -o name=net1 --subnet 10.1.1.0/24 net1
 docker network create -d opencontrail -o rt=64512:2 -o name=net2 --subnet 10.1.2.0/24 net2
+```
+
+Create CNM containers:    
+```
 docker create --name cnmSI --net net1 alpine:3.1 tail -f /dev/null && docker network connect net2 cnmSI && docker start  cnmSI
 docker run -tid --name alp1 --net net1 alpine:3.1 /bin/sh
 docker run -tid --name alp2 --net net2 alpine:3.1 /bin/sh
 ```
 
+Bring up CNI driver container:    
+```
+docker-compose up -d cni
+```
+
+Create CNI based namespace:    
 ```
 ip netns add cniSI
-docker-compose up -d cni
 docker-compose run -e CNI_COMMAND=ADD -e CNI_NETNS=/var/run/netns/cniSI --rm cni  < /etc/cni/net.d/10-opencontrail-multi.conf
 ```
 
+Check create vrouter virtual interfacesL    
 ```
 docker exec -it contrail_vrouter-agent_1 vif --list
 ```
