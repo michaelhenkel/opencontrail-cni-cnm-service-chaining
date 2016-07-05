@@ -288,4 +288,22 @@ Start ping between alp1 and alp2 (will not work, yet):
 ```
 docker-compose run -e CNI_COMMAND=DEL -e CNI_NETNS=/var/run/netns/cniSI --rm cni  < /etc/cni/net.d/10-opencontrail-multi.conf
 ```
+Create Service Template:    
 ![ScreenShot](/pics/CreateServiceTemplate.png?raw=true "Create Service Template")
+
+Create CNI SI:    
+![ScreenShot](/pics/cniSI1.png?raw=true "Create Service Template")
+![ScreenShot](/pics/cniSI2.png?raw=true "Create Service Template")
+
+Create CNM SI:    
+![ScreenShot](/pics/cnmSI_1.png?raw=true "Create Service Template")
+![ScreenShot](/pics/cnmSI2.png?raw=true "Create Service Template")
+
+Create Network Policy:    
+![ScreenShot](/pics/createPolicy.png?raw=true "Create Service Template")
+
+Attache NW Policy to VN net1:    
+![ScreenShot](/pics/attachPolNet1.png?raw=true "Create Service Template")
+
+Attache NW Policy to VN net2:    
+![ScreenShot](/pics/attachPolNet2.png?raw=true "Create Service Template")
