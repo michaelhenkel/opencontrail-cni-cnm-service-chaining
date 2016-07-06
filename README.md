@@ -69,7 +69,8 @@ Prerequisites:
        connected to a key/value store)    
 
 The CNM and CNI drivers (and vrouter agent) are run as containers so    
-that the host must not install any depending package.    
+that the host must not install any depending package besides kernel    
+headers which are needed for the vrouter kernel module.    
 
 Install Kernel headers:    
 ```
