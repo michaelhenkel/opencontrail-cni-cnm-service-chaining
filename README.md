@@ -1,4 +1,4 @@
-# Service chaining with OpenContrail using CNI and CNM based container
+# Service Chaining with OpenContrail using CNI and CNM based container as Virtual Network Functions (VNF)
 
 CNI (Container Network Interface) and CNM (Container Network Model) are two competing    
 container networking frameworks. CNI can be used for k8s, OpenShift and Mesos,    
@@ -18,12 +18,10 @@ https://github.com/michaelhenkel/opencontrail-docker-libnetwork
 In order to show the full potential of the abstraction this example uses one CNI    
 and one CNM based container as Service Instances (SI) in a Service Chain between    
 two other containers.    
-Two additional containers will be connected to VNs net1 and net2. A network policy    
-will force traffic between the containers through the CNM and CNI SI.    
-Therefore two virtual networks (VNs) (net1 and net2) will be created. The VNs    
-must be created using the CNM command line as CNM doesn't support discovery    
-of VNs not being created by CNM.    
-
+Two additional containers will be connected to virtual networks (VNs) net1 and net2.    
+A network policy will force traffic between the containers through the CNM and CNI SI.    
+Therefore two VNs (net1 and net2) will be created. The VNs must be created using    
+the CNM command line as CNM doesn't support discovery of VNs not being created by CNM.
 
 # Logical Network Setup
 ```
@@ -283,11 +281,12 @@ ip netns exec cniSI ip addr sh
 
 Start ping between alp1 and alp2 (will not work, yet):    
 ```
+docker exec -it alp1 ping 10.1.2.3
+PING 10.1.2.3 (10.1.2.3): 56 data bytes
+```
 
-```
-```
-docker-compose run -e CNI_COMMAND=DEL -e CNI_NETNS=/var/run/netns/cniSI --rm cni  < /etc/cni/net.d/10-opencontrail-multi.conf
-```
+#Create Service Chaining Policy
+
 Create Service Template:    
 ![ScreenShot](/pics/CreateServiceTemplate.png?raw=true "Create Service Template")
 
@@ -302,8 +301,103 @@ Create CNM SI:
 Create Network Policy:    
 ![ScreenShot](/pics/createPolicy.png?raw=true "Create Service Template")
 
-Attache NW Policy to VN net1:    
+Attach NW Policy to VN net1:    
 ![ScreenShot](/pics/attachPolNet1.png?raw=true "Create Service Template")
 
-Attache NW Policy to VN net2:    
+Attach NW Policy to VN net2:    
 ![ScreenShot](/pics/attachPolNet2.png?raw=true "Create Service Template")
+
+Ping starts to work now:
+```
+docker exec -it alp1 ping 10.1.2.3
+PING 10.1.2.3 (10.1.2.3): 56 data bytes
+64 bytes from 10.1.2.3: seq=0 ttl=61 time=4.924 ms
+64 bytes from 10.1.2.3: seq=1 ttl=61 time=0.225 ms
+64 bytes from 10.1.2.3: seq=2 ttl=61 time=0.205 ms
+64 bytes from 10.1.2.3: seq=3 ttl=61 time=0.146 ms
+64 bytes from 10.1.2.3: seq=4 ttl=61 time=0.326 ms
+64 bytes from 10.1.2.3: seq=5 ttl=61 time=0.165 ms
+64 bytes from 10.1.2.3: seq=6 ttl=61 time=0.148 ms
+64 bytes from 10.1.2.3: seq=7 ttl=61 time=0.141 ms
+64 bytes from 10.1.2.3: seq=8 ttl=61 time=0.212 ms
+```
+
+In order to double check that traffic is routed through the Service Instances    
+the ports of the SIs must be identified:    
+![ScreenShot](/pics/ports.png?raw=true "Get SI Ports")
+
+The cnmSI and cniSI port can be related:    
+```
+docker exec -it cnmSI ip addr sh
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+308: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether 02:a5:8d:8e:28:e8 brd ff:ff:ff:ff:ff:ff
+    inet 10.1.1.2/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::a5:8dff:fe8e:28e8/64 scope link
+       valid_lft forever preferred_lft forever
+310: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether 02:e2:6a:99:33:16 brd ff:ff:ff:ff:ff:ff
+    inet 10.1.2.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+    inet6 fe80::e2:6aff:fe99:3316/64 scope link
+       valid_lft forever preferred_lft forever
+
+
+ip netns exec cniSI ip addr sh
+1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+7: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1492 qdisc noqueue state UP group default
+    link/ether 2a:a4:b6:1d:4f:ba brd ff:ff:ff:ff:ff:ff
+    inet 10.1.1.254/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::28a4:b6ff:fe1d:4fba/64 scope link
+       valid_lft forever preferred_lft forever
+9: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1492 qdisc noqueue state UP group default
+    link/ether 0a:92:10:55:a6:f7 brd ff:ff:ff:ff:ff:ff
+    inet 10.1.2.254/24 scope global eth1
+       valid_lft forever preferred_lft forever
+    inet6 fe80::892:10ff:fe55:a6f7/64 scope link
+       valid_lft forever preferred_lft forever
+```
+
+A tcpdump on the cniSI and cnmSI veth interfaces show the traffic.    
+cnmSI ports:    
+```
+tcpdump -nS -i veth52ea6c92p0
+listening on veth52ea6c92p0, link-type EN10MB (Ethernet), capture size 65535 bytes
+01:24:46.666913 IP 10.1.1.3 > 10.1.2.3: ICMP echo request, id 7424, seq 0, length 64
+01:24:46.668164 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 7424, seq 0, length 64
+01:24:47.664270 IP 10.1.1.3 > 10.1.2.3: ICMP echo request, id 7424, seq 1, length 64
+01:24:47.664327 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 7424, seq 1, length 64
+
+tcpdump -nS -i veth41c972efp0
+listening on veth41c972efp0, link-type EN10MB (Ethernet), capture size 65535 bytes
+01:25:24.760265 IP 10.1.1.3 > 10.1.2.3: ICMP echo request, id 8448, seq 0, length 64
+01:25:24.761422 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 8448, seq 0, length 64
+01:25:25.757015 IP 10.1.1.3 > 10.1.2.3: ICMP echo request, id 8448, seq 1, length 64
+01:25:25.757071 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 8448, seq 1, length 64
+```
+
+cniSI ports:
+```
+tcpdump -nS -i vethe0a9d196
+listening on vethe0a9d196, link-type EN10MB (Ethernet), capture size 65535 bytes
+01:27:07.390304 IP 10.1.1.3 > 10.1.2.3: ICMP echo request, id 9472, seq 0, length 64
+01:27:07.405934 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 9472, seq 0, length 64
+01:27:08.385644 IP 10.1.1.3 > 10.1.2.3: ICMP echo request, id 9472, seq 1, length 64
+01:27:08.385710 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 9472, seq 1, length 64
+
+tcpdump -nS -i veth91ea13b4
+listening on veth91ea13b4, link-type EN10MB (Ethernet), capture size 65535 bytes
+01:27:36.404685 IP 10.1.1.3 > 10.1.2.3: ICMP echo request, id 10496, seq 0, length 64
+01:27:36.412126 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 10496, seq 0, length 64
+01:27:37.405485 IP 10.1.1.3 > 10.1.2.3: ICMP echo request, id 10496, seq 1, length 64
+01:27:37.405666 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 10496, seq 1, length 64
+```
+
