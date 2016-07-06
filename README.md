@@ -3,14 +3,14 @@
 CNI (Container Network Interface) and CNM (Container Network Model) are two competing    
 container networking frameworks. CNI can be used for k8s, OpenShift and Mesos,    
 whereas CNM is the default for Dockers libnetwork.    
-Both provide a well documented APIs and support a driver plugin model.    
+Both provide well documented APIs and support a driver plugin model.    
 The driver plugin model allows to use a SDN backend providing the overlay network between    
 containers located on the same or different hosts.    
-A SDN backend providing drivers for both can abstract the difference in the networking    
+A SDN backend providing drivers for both can abstract the differences in the networking    
 models and provide a common networking infrastructure.    
-OpenContrail is the perfect candidate as it is OpenSource and provides very rich APIs    
-for different programming languages. The CNM driver is written in Python and the CNI    
-in Go:    
+Because of being an OpenSource product OpenContrail is the perfect candidate.    
+It also provides very rich APIs for different programming languages which makes it easy    
+to implement new drivers. The CNM driver is written in Python and the CNI in Go:    
 
 https://github.com/michaelhenkel/opencontrail-cni-plugin    
 https://github.com/michaelhenkel/opencontrail-docker-libnetwork    
