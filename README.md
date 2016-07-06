@@ -63,8 +63,8 @@ VNs not being created by CNM.
 ```
 #Setup Instructions:
 Prerequisites:    
-    - Running OpenContrail backend    
-    - docker-engine and docker-compose installed on the host    
+* A running OpenContrail backend    
+* docker-engine and docker-compose installed on the host    
       (for multi-host networking the docker-engine must be    
        connected to a key/value store)    
 
