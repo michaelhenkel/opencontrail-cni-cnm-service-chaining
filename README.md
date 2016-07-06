@@ -68,6 +68,9 @@ Prerequisites:
       (for multi-host networking the docker-engine must be    
        connected to a key/value store)    
 
+The CNM and CNI drivers (and vrouter agent) are run as containers so    
+that the host must not install any depending package.    
+
 Install Kernel headers:    
 ```
 apt-get install -y linux-headers-`uname -r` \
@@ -411,3 +414,52 @@ listening on veth91ea13b4, link-type EN10MB (Ethernet), capture size 65535 bytes
 01:27:37.405666 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 10496, seq 1, length 64
 ```
 
+In order to show that multi-host networking works a third container is    
+started on a different host:   
+```
+docker run -itd --name alp3 --net net2 alpine:3.1 /bin/sh
+docker exec -it alp3 ip addr sh
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+25: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether 02:1d:63:f3:2b:a2 brd ff:ff:ff:ff:ff:ff
+    inet 10.1.2.4/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::1d:63ff:fef3:2ba2/64 scope link
+       valid_lft forever preferred_lft forever
+```
+
+The container connected to net1 on the first host can ping the new container    
+on the second host:
+```
+docker exec -it alp1 ping 10.1.2.4
+PING 10.1.2.4 (10.1.2.4): 56 data bytes
+64 bytes from 10.1.2.4: seq=0 ttl=59 time=9.696 ms
+64 bytes from 10.1.2.4: seq=1 ttl=59 time=1.019 ms
+64 bytes from 10.1.2.4: seq=2 ttl=59 time=0.843 ms
+```
+
+The physical interfaces on first and second host show the encapsulated traffic.
+Host 1:    
+```
+compute109:~# tcpdump -nS -i eth0 proto gre
+listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
+01:50:09.074988 IP 192.168.1.109 > 192.168.1.220: GREv0, length 92: MPLS (label 17, exp 0, [S], ttl 59) IP 10.1.1.3 > 10.1.2.4: ICMP echo request, id 12800, seq 0, length 64
+01:50:09.077755 IP 192.168.1.220 > 192.168.1.109: GREv0, length 92: MPLS (label 26, exp 0, [S], ttl 63) IP 10.1.2.4 > 10.1.1.3: ICMP echo reply, id 12800, seq 0, length 64
+01:50:10.073415 IP 192.168.1.109 > 192.168.1.220: GREv0, length 92: MPLS (label 17, exp 0, [S], ttl 59) IP 10.1.1.3 > 10.1.2.4: ICMP echo request, id 12800, seq 1, length 64
+01:50:10.074108 IP 192.168.1.220 > 192.168.1.109: GREv0, length 92: MPLS (label 26, exp 0, [S], ttl 63) IP 10.1.2.4 > 10.1.1.3: ICMP echo reply, id 12800, seq 1, length 64
+```
+
+Host 2:    
+```
+compute220:~# tcpdump -nS -i eth0 proto gre
+listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
+18:49:33.888287 IP 192.168.1.109 > 192.168.1.220: GREv0, length 92: MPLS (label 17, exp 0, [S], ttl 59) IP 10.1.1.3 > 10.1.2.4: ICMP echo request, id 12800, seq 0, length 64
+18:49:33.890634 IP 192.168.1.220 > 192.168.1.109: GREv0, length 92: MPLS (label 26, exp 0, [S], ttl 63) IP 10.1.2.4 > 10.1.1.3: ICMP echo reply, id 12800, seq 0, length 64
+18:49:34.886729 IP 192.168.1.109 > 192.168.1.220: GREv0, length 92: MPLS (label 17, exp 0, [S], ttl 59) IP 10.1.1.3 > 10.1.2.4: ICMP echo request, id 12800, seq 1, length 64
+18:49:34.886937 IP 192.168.1.220 > 192.168.1.109: GREv0, length 92: MPLS (label 26, exp 0, [S], ttl 63) IP 10.1.2.4 > 10.1.1.3: ICMP echo reply, id 12800, seq 1, length 64
+```
