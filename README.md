@@ -20,8 +20,10 @@ and one CNM based container as Service Instances (SI) in a Service Chain between
 two other containers.    
 Two additional containers will be connected to virtual networks (VNs) net1 and net2.    
 A network policy will force traffic between the containers through the CNM and CNI SI.    
-Therefore two VNs (net1 and net2) will be created. The VNs must be created using    
-the CNM command line as CNM doesn't support discovery of VNs not being created by CNM.
+Therefore two VNs (net1 and net2) will be created. The SIs will have connections into    
+net1 and net2. The other two containers are single legged and connected to net1 and net2.    
+The VNs must be created using the CNM command line as CNM doesn't support discovery    
+VNs not being created by CNM.
 
 # Logical Network Setup
 ```
@@ -60,10 +62,18 @@ the CNM command line as CNM doesn't support discovery of VNs not being created b
               +-------------+
 ```
 #Setup Instructions:
+Prerequisites:    
+    - Running OpenContrail backend
+    - docker-engine and docker-compose installed on the host    
+      (for multi-host networking the docker-engine must be    
+       connected to a key/value store)    
 
 Install Kernel headers:    
 ```
-apt-get install -y linux-headers-`uname -r` linux-image-`uname -r` linux-headers-`uname -r`-generic linux-image-`uname -r`-generic
+apt-get install -y linux-headers-`uname -r` \
+                   linux-image-`uname -r` \
+                   linux-headers-`uname -r`-generic \
+                   linux-image-`uname -r`-generic
 ```
 
 Setup Environment Variables (adjust as needed):    
