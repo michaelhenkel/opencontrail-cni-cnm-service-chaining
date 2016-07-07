@@ -1,4 +1,4 @@
-# Service Chaining with OpenContrail using CNI and CNM based container as Virtual Network Functions (VNF)
+# Service Chaining with OpenContrail using OpenStack VM, CNI and CNM based container as Virtual Network Functions (VNF)
 
 CNI (Container Network Interface) and CNM (Container Network Model) are two competing    
 container networking frameworks. CNI can be used for k8s, OpenShift and Mesos,    
@@ -17,9 +17,10 @@ https://github.com/michaelhenkel/opencontrail-docker-libnetwork
 
 In order to show the full potential of the abstraction this example uses one CNI    
 and one CNM based container as Service Instances (SI) in a Service Chain between    
-two other containers.    
+two other containers. To complete the setup an OpenStack based VM is added as a third SI.    
+The OpenStack SI uses the OpenContrail neutron plugin.        
 Two additional containers will be connected to virtual networks (VNs) net1 and net2.    
-A network policy will force traffic between the containers through the CNM and CNI SI.    
+A network policy will force traffic between the containers through the OpenStack, CNM and CNI SI.    
 Therefore two VNs (net1 and net2) will be created. The SIs will have connections into    
 net1 and net2. The other two containers are single legged and connected to net1 and net2.    
 The VNs must be created using the CNM command line as CNM doesn't support discovery    
@@ -27,43 +28,40 @@ VNs not being created by CNM.
 
 # Logical Network Setup
 ```
-                      +-------------+
-                      |    cnmSI    |
-                      |   Docker    |
-                      |.3         .3|
-                      +-+---------+-+
-                        |         |
-             +----------++       ++----------+
-+---------+  |net1:      |       |net2:      |  +---------+
-|Docker .2+--+10.1.1.0/24|       |10.2.2.0/24+--+.2 Docker|
-+---------+  +----------++       ++----------+  +---------+
-                        |         |
-                      +-+---------+-+
-                      |.254     .254|
-                      |  Namespace  |
-                      |    cniSI    |
-                      +-------------+
+                            +-------------+
+                            |    cnmSI    |
+                            |   Docker    |
+                        +---+.3         .3+---+
+                        |   +-------------+   |
+                        |                     |
+                        |   +-------------+   |
+             +----------++  |  neutronSI  |  ++----------+
++---------+  |VN net1:   +--+.252 KVM .252+--+VN net2:   |  +---------+
+|Docker .2+--+10.1.1.0/24|  |             |  |10.2.2.0/24+--+.2 Docker|
++---------+  +----------++  +-------------+  +-+---------+  +---------+
+                        |                      |
+                        |   +-------------+    |
+                        +---+.254     .254+----+
+                            |  Namespace  |
+                            |    cniSI    |
+                            +-------------+
+
 ```
 
 # Communication Flow
 ```
-              +-------------+
-              |    cnmSI    |
- +---------+  |   Docker    |
- |Docker|.2+-->.3         .3|
- +---------+  +------------++
-                           |
-                 +---------+
-                 |
-              +--v----------+  +---------+
-              |.254     .254+-->.2 Docker|
-              |  Namespace  |  +---------+
-              |    cniSI    |
-              +-------------+
+
+             +-------------+  +-------------+  +-------------+
+             |    cnmSI    |  |    cniSI    |  |  neutronSI  |
++---------+  |   Docker    |  |  Namespace  |  |    KVM      |  +---------+
+|Docker .2+-->.3         .3+-->.254     .254+-->.252     .252+-->.2 Docker|
++---------+  +-------------+  +-------------+  +-------------+  +---------+
+
 ```
 #Setup Instructions:
 Prerequisites:    
 * A running OpenContrail backend    
+* A running OpenStack backend    
 * docker-engine and docker-compose installed on the host    
       (for multi-host networking the docker-engine must be    
        connected to a key/value store)    
@@ -280,7 +278,7 @@ ip netns add cniSI
 docker-compose run -e CNI_COMMAND=ADD -e CNI_NETNS=/var/run/netns/cniSI --rm cni  < /etc/cni/net.d/10-opencontrail-multi.conf
 ```
 
-Check create vrouter virtual interfacesL    
+Check vrouter interfaces:    
 ```
 docker exec -it contrail_vrouter-agent_1 vif --list
 ```
@@ -292,6 +290,31 @@ docker exec -it alp2 ip addr sh
 docker exec -it cnmSI ip addr sh
 ip netns exec cniSI ip addr sh
 ```
+
+Get the neutron net ids for net1 and net2:    
+```
+nova net-list
++--------------------------------------+-------------------------+------+
+| ID                                   | Label                   | CIDR |
++--------------------------------------+-------------------------+------+
+| b9081815-4dbc-4910-b36f-b8b1a9319cb2 | ip-fabric               | None |
+| 14ef277b-0409-496d-ac88-5780190973f1 | net1                    | None |
+| e549c986-93b8-4268-b9e4-2434f384dd6a | net2                    | None |
+| 8a61b1b3-b3a2-4821-97d0-9ae7c21ef985 | default-virtual-network | None |
+| a2ad148f-2b1b-40e0-be7c-bdfe090b07c1 | __link_local__          | None |
++--------------------------------------+-------------------------+------+
+```
+
+Create the neutron SI:    
+```
+nova boot --flavor nano --image cirros \
+     --nic net-id=14ef277b-0409-496d-ac88-5780190973f1 \
+     --nic net-id=e549c986-93b8-4268-b9e4-2434f384dd6a c1
+``I`
+The Cirros image per default only activates the first network interface.    
+The second interface must be activated from within the VM. Also    
+ip_forwading must be activated.    
+
 
 Start ping between alp1 and alp2 (will not work, yet):    
 ```
@@ -311,6 +334,10 @@ Create CNI SI:
 Create CNM SI:    
 ![ScreenShot](/pics/cnmSI_1.png?raw=true "Create Service Template")
 ![ScreenShot](/pics/cnmSI2.png?raw=true "Create Service Template")
+
+Create neutron SI:    
+![ScreenShot](/pics/neutronSI1.png?raw=true "Create Service Template")
+![ScreenShot](/pics/neutronSI2.png?raw=true "Create Service Template")
 
 Create Network Policy:    
 ![ScreenShot](/pics/createPolicy.png?raw=true "Create Service Template")
@@ -413,6 +440,23 @@ listening on veth91ea13b4, link-type EN10MB (Ethernet), capture size 65535 bytes
 01:27:36.412126 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 10496, seq 0, length 64
 01:27:37.405485 IP 10.1.1.3 > 10.1.2.3: ICMP echo request, id 10496, seq 1, length 64
 01:27:37.405666 IP 10.1.2.3 > 10.1.1.3: ICMP echo reply, id 10496, seq 1, length 64
+```
+
+neutronSI ports:
+```
+tcpdump -nS -i tapc5e3a80e-d7
+listening on tapc5e3a80e-d7, link-type EN10MB (Ethernet), capture size 65535 bytes
+18:53:14.946087 IP 10.1.1.2 > 10.1.2.2: ICMP echo request, id 2304, seq 2995, length 64
+18:53:14.947383 IP 10.1.2.2 > 10.1.1.2: ICMP echo reply, id 2304, seq 2995, length 64
+18:53:15.946345 IP 10.1.1.2 > 10.1.2.2: ICMP echo request, id 2304, seq 2996, length 64
+18:53:15.947661 IP 10.1.2.2 > 10.1.1.2: ICMP echo reply, id 2304, seq 2996, length 64
+
+tcpdump -nS -i tapcd11d589-57
+listening on tapcd11d589-57, link-type EN10MB (Ethernet), capture size 65535 bytes
+18:53:42.954621 IP 10.1.1.2 > 10.1.2.2: ICMP echo request, id 2304, seq 3023, length 64
+18:53:42.955295 IP 10.1.2.2 > 10.1.1.2: ICMP echo reply, id 2304, seq 3023, length 64
+18:53:43.954896 IP 10.1.1.2 > 10.1.2.2: ICMP echo request, id 2304, seq 3024, length 64
+18:53:43.955575 IP 10.1.2.2 > 10.1.1.2: ICMP echo reply, id 2304, seq 3024, length 64
 ```
 
 In order to show that multi-host networking works a third container is    
