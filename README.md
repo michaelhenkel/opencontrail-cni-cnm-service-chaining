@@ -1,4 +1,4 @@
-# Service Chaining with OpenContrail using OpenStack VM, CNI and CNM based container as Virtual Network Functions (VNF)
+# Service Function Chaining (SFC) with Neutron, CNI and CNM using OpenContrail    
 
 CNI (Container Network Interface) and CNM (Container Network Model) are two competing    
 container networking frameworks. CNI can be used for k8s, OpenShift and Mesos,    
