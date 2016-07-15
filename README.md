@@ -311,7 +311,7 @@ Create the neutron SI:
 nova boot --flavor nano --image cirros \
      --nic net-id=14ef277b-0409-496d-ac88-5780190973f1 \
      --nic net-id=e549c986-93b8-4268-b9e4-2434f384dd6a c1
-``I`
+```
 The Cirros image per default only activates the first network interface.    
 The second interface must be activated from within the VM. Also    
 ip_forwading must be activated.    
