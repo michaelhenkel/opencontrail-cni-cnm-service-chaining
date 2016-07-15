@@ -169,6 +169,8 @@ services:
     volumes:
       - /etc/cni/net.d:/etc/cni/net.d
       - /var/run/netns:/var/run/netns
+    volumes_from:
+      - vrouter-agent
     cap_add:
       - NET_ADMIN
   vrouter-agent:
@@ -188,6 +190,7 @@ services:
       - /usr/src/linux-headers-$FULL_KERNEL:/usr/src/linux-headers-$FULL_KERNEL
       - /usr/src/linux-headers-$KERNEL:/usr/src/linux-headers-$KERNEL
       - /lib/modules:/lib/modules
+      - /var/lib/contrail/ports
 EOF
 ```
 
@@ -224,7 +227,7 @@ cat << EOF > /etc/cni/net.d/10-opencontrail-multi.conf
 EOF
 ```
 
-Create a CNI source file:    
+Create a CNI source file and source it:    
 ```
 cat << EOF > ~/.cnirc
 export API_SERVER_PORT=8082
@@ -240,6 +243,7 @@ export PATH=$PATH:$CNI_PATH
 export CNI_CONTAINERID=cniSI
 export CNI_NETNS=/var/run/netns/cniSI
 EOF
+source ~/.cnirc
 ```
 
 Bring up vrouter agent:    
