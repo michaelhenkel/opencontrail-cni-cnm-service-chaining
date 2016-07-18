@@ -1,0 +1,69 @@
+version: '2'
+services:
+  cnm:
+    image: michaelhenkel/opencontrail-docker-libnetwork:3.0.2-09e5d48
+    network_mode: "host"
+    depends_on:
+      - vrouter-agent
+    env_file: common.env
+    volumes:
+      - /run/docker/plugins:/run/docker/plugins
+#      - /root/opencontrail-docker-libnetwork/:/opencontrail-docker-libnetwork
+    cap_add:
+      - NET_ADMIN
+    volumes_from:
+      - vrouter-agent
+  cni:
+    image: michaelhenkel/opencontrail-cni-plugin:3.0.2-09e5d48
+    network_mode: "host"
+    depends_on:
+      - vrouter-agent
+    env_file: cni.env
+    privileged: true
+    volumes:
+      - /etc/cni/net.d:/etc/cni/net.d
+      - /var/run/netns:/var/run/netns
+#      - /root/opencontrail-cni-plugin/opencontrail:/go/src/github.com/containernetworking/cni/plugins/main/opencontrail
+    volumes_from:
+      - vrouter-agent
+    cap_add:
+      - NET_ADMIN
+  libvirt:
+    image: michaelhenkel/libvirt:1.0
+    privileged: true
+    volumes:
+      - /var/lib/nova/instances:/var/lib/nova/instances
+      - /lib/modules:/lib/modules
+      - /var/lib/libvirt/:/var/lib/libvirt
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    network_mode: "host"
+    env_file: common.env
+  nova-compute:
+    image: michaelhenkel/nova-compute:liberty
+    privileged: true
+    volumes:
+      - /var/lib/nova/instances:/var/lib/nova/instances
+    network_mode: "host"
+    env_file: common.env
+    volumes_from:
+      - vrouter-agent
+    depends_on:
+      - vrouter-agent
+  vrouter-agent:
+    image: michaelhenkel/vrouter-agent:3.0.2-09e5d48
+    privileged: true
+    network_mode: "host"
+    env_file: common.env
+    environment:
+      - SERVICE_NAME=vrouter
+    ports:
+      - 8097:8097
+      - 9090:9090
+      - 9091:9091
+      - 8085:8085
+    volumes:
+      - /etc/redhat-release:/etc/redhat-release
+      - /usr/src/linux-headers-3.19.0-59-generic:/usr/src/linux-headers-3.19.0-59-generic
+      - /usr/src/linux-headers-3.19.0-59:/usr/src/linux-headers-3.19.0-59
+      - /lib/modules:/lib/modules
+      - /var/lib/contrail/ports
