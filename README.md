@@ -240,8 +240,6 @@ export LOG_LEVEL=debug
 export CNI_PATH=~/cni/bin
 export CNI_IFNAME=eth0
 export PATH=$PATH:$CNI_PATH
-export CNI_CONTAINERID=cniSI
-export CNI_NETNS=/var/run/netns/cniSI
 EOF
 source ~/.cnirc
 ```
@@ -280,7 +278,7 @@ docker-compose up -d cni
 Create CNI based namespace:    
 ```
 ip netns add cniSI
-docker-compose run -e CNI_COMMAND=ADD -e CNI_NETNS=/var/run/netns/cniSI --rm cni  < /etc/cni/net.d/10-opencontrail-multi.conf
+docker-compose run -e CNI_COMMAND=ADD -e CNI_NETNS=/var/run/netns/cniSI -e CNI_CONTAINERID=cniSI --rm cni  < /etc/cni/net.d/10-opencontrail-multi.conf
 ```
 
 Check vrouter interfaces:    
